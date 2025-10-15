@@ -220,12 +220,12 @@
     <script type="module">
         // --- CONFIGURATION ---
         // !!! IMPORTANT: 1. PASTE YOUR DEPLOYED GAS WEB APP URL HERE !!!
-        const GAS_ENDPOINT_URL = "https://script.google.com/macros/library/d/1qbEIfEqfoklenq7gS-W6b0O-un0L97Dr4ulQwgsL57hX-eJbV9Sz1HoF/3";
+        const GAS_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxt6IuxC6kLmoVIbsyNaFdQBp57IzovsREor3JLjHNmA06jToMKdJ-ys8Hs9MU5lk07/exec"; // <--- EDIT THIS LINE
         // !!! IMPORTANT: 2. SET YOUR MASTER PASSWORD HERE (MUST MATCH GAS SCRIPT) !!!
         let MASTER_PASSWORD = "910114600"; 
         // !!! IMPORTANT: 3. SET YOUR GEMINI API Key (If using external API) !!!
         const AI_MODEL = "gemini-2.5-flash-preview-05-20";
-        const API_KEY = "AIzaSyDI_MymFE7lr-QrJwICvakAvg4KBVAekvs"; // Replace with your actual Gemini API Key (or leave blank if using Canvas)
+        const API_KEY = ""; // Replace with your actual Gemini API Key (or leave blank if using Canvas)
         const AI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:generateContent?key=${API_KEY}`;
         
         let allFinancialData = { Assets: [], Goals: [], Transactions: [] };
@@ -278,7 +278,7 @@
             const passwordInput = document.getElementById('master-password');
             authStatus.classList.add('hidden');
             
-            // FIX 1: Safeguard against null input field
+            // 1. Safeguard against null input field
             if (!passwordInput) {
                 authStatus.textContent = 'Critical Error: Password input element not found.';
                 authStatus.classList.remove('hidden');
@@ -287,17 +287,20 @@
 
             const enteredPassword = passwordInput.value;
             
+            // 2. Check for missing GAS URL first
+            if (GAS_ENDPOINT_URL.includes("YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL")) {
+                authStatus.textContent = 'Configuration Error: Please update the GAS_ENDPOINT_URL in the script to your deployed Google Apps Script link.';
+                authStatus.classList.remove('hidden');
+                return;
+            }
+
+            // 3. Local password check
             if (enteredPassword !== MASTER_PASSWORD) {
-                authStatus.textContent = 'Error: Local password mismatch.';
+                authStatus.textContent = 'Error: Local password mismatch. Ensure your input matches the MASTER_PASSWORD set in the script.';
                 authStatus.classList.remove('hidden');
                 return;
             }
             
-            if (GAS_ENDPOINT_URL.includes("YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL")) {
-                authStatus.textContent = 'Error: Please configure GAS_ENDPOINT_URL in the script.';
-                authStatus.classList.remove('hidden');
-                return;
-            }
 
             // Attempt to fetch data using the password
             authStatus.textContent = 'Authenticating and loading data...';
@@ -315,11 +318,12 @@
                     renderSummaryTab();
                     showMessage("Dashboard unlocked! Data loaded from Google Sheets.", 'green');
                 } else {
-                    authStatus.textContent = response.message || 'Authentication failed at Google Sheets API.';
+                    // This handles API key mismatch on the backend (GAS)
+                    authStatus.textContent = response.message || 'Authentication failed at Google Sheets API. Check the master password in GAS.';
                     authStatus.classList.remove('hidden');
                 }
             } catch (error) {
-                authStatus.textContent = 'Network or API connection error. Check your URL/Deployment.';
+                authStatus.textContent = 'Network or API connection error. Check your GAS_ENDPOINT_URL/Deployment and ensure your spreadsheet is active.';
                 authStatus.classList.remove('hidden');
             }
         }
@@ -444,7 +448,7 @@
                             <p class="text-gray-700 font-medium">${t.Description}</p>
                             <p class="text-xs text-gray-500">${t.Category}</p>
                         </div>
-                        <p class="font-bold text-lg ${color}">${isIncome ? '+' : '-'}$${(t.Amount || 0).toLocaleString()}</p>
+                        <p class="font-bold text-lg ${color}">${isIncome ? '+' : '-'}${(t.Amount || 0).toLocaleString()}</p>
                     </div>
                 `;
             }).join('');
@@ -671,7 +675,7 @@
 
         function renderExpenseChart(groupedExpenses) {
             const ctx = document.getElementById('expenseChart').getContext('2d');
-            if (expenseChartInstance) expenseChartInstance.destroy();
+            if (expenseChartInstance) expenseChartChartInstance.destroy();
 
             expenseChartInstance = new Chart(ctx, {
                 type: 'doughnut',
