@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WealthUltra AI Financial Advisor (Sheets Backend)</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for beautiful charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f6f9; }
+        .tab-button { transition: all 0.3s ease; white-space: nowrap; padding-bottom: 1rem; border-bottom: 4px solid transparent; }
+        .tab-button.active { border-bottom: 4px solid #3b82f6; color: #3b82f6; font-weight: 600; }
+        .card { background-color: white; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .custom-scroll::-webkit-scrollbar { height: 6px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
+        .metric-card { padding: 1.5rem; border-left: 5px solid; transition: transform 0.2s; }
+        .metric-card:hover { transform: translateY(-2px); box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.1); }
+        #auth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); z-index: 100;
+            display: flex; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Password Authentication Overlay -->
+    <div id="auth-overlay">
+        <div class="card p-8 w-11/12 max-w-md text-center">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">WealthUltra: Secure Access</h2>
+            <p class="text-gray-600 mb-6">Enter your master password to decrypt and load your financial data from Google Sheets.</p>
+            
+            <!-- This password MUST match the one set in the Google Apps Script -->
+            <input type="password" id="master-password" placeholder="Enter Master Password" class="w-full p-3 mb-4 border border-blue-400 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            
+            <button onclick="authenticateAndLoad()" class="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition w-full font-semibold">
+                Unlock Dashboard
+            </button>
+            <p id="auth-status" class="mt-4 text-red-500 hidden font-medium"></p>
+        </div>
+    </div>
+
+    <div id="dashboard-main" class="p-4 md:p-8 hidden">
+        <div class="max-w-7xl mx-auto card overflow-hidden">
+            
+            <!-- Header and Title -->
+            <header class="p-6 bg-blue-600 text-white shadow-lg">
+                <h1 class="text-3xl font-extrabold flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-3 text-yellow-300" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+                        <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+                    </svg>
+                    WealthUltra AI Financial Advisor
+                </h1>
+                <p class="text-blue-200 mt-1">Extra Ultra Smart Personal Wealth Management</p>
+            </header>
+
+            <!-- Tab Navigation (Top Tabs) -->
+            <nav class="bg-white border-b border-gray-200 sticky top-0 z-10">
+                <div class="flex overflow-x-auto custom-scroll px-6">
+                    <button class="tab-button active px-4 py-3 text-gray-600 hover:text-blue-500" data-tab="summary">Summary</button>
+                    <button class="tab-button px-4 py-3 text-gray-600 hover:text-blue-500" data-tab="platform">Platforms</button>
+                    <button class="tab-button px-4 py-3 text-gray-600 hover:text-blue-500" data-tab="goal">Goals</button>
+                    <button class="tab-button px-4 py-3 text-gray-600 hover:text-blue-500" data-tab="investment">Investments</button>
+                    <button class="tab-button px-4 py-3 text-gray-600 hover:text-blue-500" data-tab="assets">Assets</button>
+                    <button class="tab-button px-4 py-3 text-gray-600 hover:text-blue-500" data-tab="budget">Budget/Expenses</button>
+                    <button class="tab-button px-4 py-3 text-gray-600 hover:text-blue-500" data-tab="ai-advisor">AI Advisor</button>
+                </div>
+            </nav>
+
+            <!-- Main Content Area -->
+            <main id="tab-content" class="p-6 md:p-8">
+
+                <!-- 1. Summary Dashboard Tab -->
+                <div id="summary" class="tab-pane">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Financial Pulse & Net Worth</h2>
+                    <div id="summary-metrics" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <!-- Metrics will be inserted here -->
+                    </div>
+                    <div class="card p-6 shadow-xl border border-gray-100 mb-8">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-700">Net Worth Progression</h3>
+                        <div class="h-64"><canvas id="netWorthChart"></canvas></div>
+                    </div>
+                    <div class="card p-6 shadow-xl border border-gray-100 mb-8">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-700">Asset Allocation</h3>
+                        <div class="h-64"><canvas id="assetAllocationChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- 2. Platforms Tab (Liquidity) -->
+                <div id="platform" class="tab-pane hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Financial Platforms & Liquidity</h2>
+                    <div id="platform-list" class="space-y-4">
+                        <p class="text-gray-500 italic">No platforms or accounts registered. Please add assets via the 'Assets' tab.</p>
+                    </div>
+                </div>
+
+                <!-- 3. Goals Tab -->
+                <div id="goal" class="tab-pane hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Financial Goals & AI Strategy</h2>
+                    <div id="goal-form-area" class="card p-6 shadow-inner mb-6">
+                        <h3 class="text-xl font-semibold text-purple-700 mb-4">Set & Strategize New Goal</h3>
+                        <input type="text" id="goal-title" placeholder="Goal Title (e.g., Save for Tesla Model 3)" class="w-full p-3 mb-3 border rounded-lg">
+                        <input type="number" id="goal-target" placeholder="Target Amount ($)" class="w-full p-3 mb-3 border rounded-lg">
+                        <input type="date" id="goal-deadline" class="w-full p-3 mb-4 border rounded-lg">
+                        <button onclick="addGoal()" class="bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition">Set Goal</button>
+                        <button onclick="strategizeGoal()" class="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition ml-3">
+                            ✨ AI Strategize
+                        </button>
+                    </div>
+                    <div id="goal-list" class="space-y-4">
+                        <p class="text-gray-500 italic">No financial goals defined.</p>
+                    </div>
+                </div>
+
+                <!-- 4. Investment Tab (Transactions List) -->
+                <div id="investment" class="tab-pane hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Investment Transactions</h2>
+                    <div id="investment-form-area" class="card p-6 shadow-inner mb-6">
+                        <h3 class="text-xl font-semibold text-green-700 mb-4">Record New Investment Transaction</h3>
+                        <input type="text" id="inv-desc" placeholder="Description (e.g., Bought 10 shares of MSFT)" class="w-full p-3 mb-3 border rounded-lg">
+                        <input type="number" id="inv-amount" placeholder="Amount ($)" class="w-full p-3 mb-4 border rounded-lg">
+                        <select id="inv-category" class="w-full p-3 mb-4 border rounded-lg">
+                            <option value="Buy">Buy (Inflow)</option>
+                            <option value="Sell">Sell (Outflow)</option>
+                            <option value="Dividend">Dividend (Income)</option>
+                        </select>
+                        <button onclick="addInvestmentTransaction()" class="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition">Record Transaction</button>
+                    </div>
+                    <div id="investment-transactions" class="space-y-3">
+                        <p class="text-gray-500 italic">No investment transactions recorded.</p>
+                    </div>
+                </div>
+                
+                <!-- 5. Assets Tab -->
+                <div id="assets" class="tab-pane hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Manage Assets</h2>
+                    <div id="asset-form-area" class="card p-6 shadow-inner mb-6">
+                        <h3 class="text-xl font-semibold text-yellow-700 mb-4">Add or Update Asset Value</h3>
+                        <input type="text" id="asset-name" placeholder="Asset Name (e.g., Primary Residence)" class="w-full p-3 mb-3 border rounded-lg">
+                        <input type="number" id="asset-value" placeholder="Current Value ($)" class="w-full p-3 mb-3 border rounded-lg">
+                        <input type="text" id="asset-platform" placeholder="Platform/Location (e.g., Vanguard, Chase, Home Address)" class="w-full p-3 mb-3 border rounded-lg">
+                        <select id="asset-type" class="w-full p-3 mb-4 border rounded-lg">
+                            <option value="Real Estate">Real Estate</option>
+                            <option value="Cash/Savings">Cash/Savings</option>
+                            <option value="Stocks/ETFs">Stocks/ETFs</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <button onclick="addAsset()" class="bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition">Add Asset</button>
+                    </div>
+                    <div id="asset-list" class="space-y-3">
+                        <p class="text-gray-500 italic">No assets added.</p>
+                    </div>
+                </div>
+
+                <!-- 6. Budget/Expenses Tab -->
+                <div id="budget" class="tab-pane hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Budget & Expense Tracking</h2>
+                    <div id="expense-form-area" class="card p-6 shadow-inner mb-6">
+                        <h3 class="text-xl font-semibold text-pink-700 mb-4">Record Expense or Income</h3>
+                        <input type="text" id="expense-desc" placeholder="Expense Description (e.g., Monthly Rent)" class="w-full p-3 mb-3 border rounded-lg">
+                        <input type="number" id="expense-amount" placeholder="Amount ($)" class="w-full p-3 mb-3 border rounded-lg">
+                        <select id="expense-category" class="w-full p-3 mb-3 border rounded-lg">
+                            <option value="Housing">Housing</option>
+                            <option value="Food/Groceries">Food/Groceries</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Other">Other Expense</option>
+                            <option value="Salary">Salary (Income)</option>
+                            <option value="Bonus">Bonus (Income)</option>
+                        </select>
+                        <select id="expense-type" class="w-full p-3 mb-4 border rounded-lg">
+                            <option value="Expense">Expense</option>
+                            <option value="Income">Income</option>
+                        </select>
+                        <button onclick="addExpense()" class="bg-pink-600 text-white py-2 px-4 rounded-lg hover:bg-pink-700 transition">Record Transaction</button>
+                    </div>
+                    
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Expense Breakdown</h3>
+                    <div class="card p-6">
+                        <div class="h-64">
+                            <canvas id="expenseChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 7. AI Financial Advisor Tab (Gemini Integration) -->
+                <div id="ai-advisor" class="tab-pane hidden">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Ask WealthUltra AI: Real-Time Strategy</h2>
+                    
+                    <div class="card p-6 mb-6">
+                        <textarea id="ai-prompt" rows="5" placeholder="Ask for advice, e.g., 'Analyze my current net worth trend and suggest a safer investment strategy.' or 'What is the consensus outlook for the energy sector this quarter?'" class="w-full p-3 border border-indigo-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
+                        <button id="get-advice-btn" onclick="getFinancialAdvice()" class="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition mt-3 w-full sm:w-auto">
+                            ✨ Get Ultra Smart Advice
+                        </button>
+                    </div>
+
+                    <!-- AI Response Area -->
+                    <div id="ai-response-area" class="min-h-[250px] card p-6 border border-blue-200">
+                        <p id="ai-response-text" class="text-gray-600 italic">Advice will appear here. WealthUltra AI uses your private data and real-time web grounding for actionable insights.</p>
+                        <div id="ai-loading" class="hidden text-center py-10">
+                            <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                            <p class="text-blue-600 mt-2">WealthUltra AI is calculating optimal strategy...</p>
+                        </div>
+                        <div id="ai-sources" class="mt-4 text-xs text-gray-500 border-t pt-2 hidden">
+                            <p class="font-semibold">Sources used for grounding:</p>
+                            <ul id="ai-source-list" class="list-disc list-inside ml-4"></ul>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Message Box for Custom Alerts -->
+    <div id="message-box" class="fixed bottom-4 right-4 bg-green-500 text-white p-4 rounded-lg shadow-xl hidden z-50 transition-opacity duration-300 opacity-0"></div>
+
+    <script type="module">
+        // --- CONFIGURATION ---
+        // !!! IMPORTANT: 1. PASTE YOUR DEPLOYED GAS WEB APP URL HERE !!!
+        const GAS_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbxdDhyaoFDmn8br9VlH1G6jZr4m8PfzyAXIp0YNNKX6O6ZxUEsY5JmVqjME1bFEurO7/exec";
+        // !!! IMPORTANT: 2. SET YOUR MASTER PASSWORD HERE (MUST MATCH GAS SCRIPT) !!!
+        let MASTER_PASSWORD = "Prens@4600_^_^"; 
+        // !!! IMPORTANT: 3. SET YOUR GEMINI API Key (If using external API) !!!
+        const AI_MODEL = "gemini-2.5-flash-preview-05-20";
+        const API_KEY = "AIzaSyDI_MymFE7lr-QrJwICvakAvg4KBVAekvs"; // Replace with your actual Gemini API Key (or leave blank if using Canvas)
+        const AI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:generateContent?key=${API_KEY}`;
+        
+        let allFinancialData = { Assets: [], Goals: [], Transactions: [] };
+        let isAuthenticated = false;
+
+        // --- Core UI/Utility Functions ---
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+        const messageBox = document.getElementById('message-box');
+        const authOverlay = document.getElementById('auth-overlay');
+        const dashboardMain = document.getElementById('dashboard-main');
+        const authStatus = document.getElementById('auth-status');
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                if (!isAuthenticated) return;
+                const targetTabId = button.getAttribute('data-tab');
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabPanes.forEach(pane => pane.classList.add('hidden'));
+                button.classList.add('active');
+                document.getElementById(targetTabId).classList.remove('hidden');
+                
+                // Re-render charts/data when switching tabs
+                if (targetTabId === 'summary') renderSummaryTab();
+                if (targetTabId === 'platform') renderPlatformTab();
+                if (targetTabId === 'goal') renderGoalsTab();
+                if (targetTabId === 'assets') renderAssetsTab();
+                if (targetTabId === 'investment') renderTransactionsTab('Investment', 'investment-transactions');
+                if (targetTabId === 'budget') renderBudgetTab();
+            });
+        });
+
+        function showMessage(message, type) {
+            let bgColor = type === 'green' ? 'bg-green-500' : type === 'red' ? 'bg-red-500' : 'bg-yellow-500';
+            messageBox.textContent = message;
+            messageBox.className = `fixed bottom-4 right-4 text-white p-4 rounded-lg shadow-xl z-50 transition-opacity duration-300 opacity-100 ${bgColor}`;
+            messageBox.classList.remove('hidden');
+            setTimeout(() => {
+                messageBox.classList.add('opacity-0');
+                messageBox.addEventListener('transitionend', () => {
+                    messageBox.classList.add('hidden');
+                }, { once: true });
+            }, 3000);
+        }
+        window.showMessage = showMessage;
+
+        // --- AUTHENTICATION & DATA FETCHING ---
+        
+        async function authenticateAndLoad() {
+            const passwordInput = document.getElementById('master-password');
+            authStatus.classList.add('hidden');
+            
+            // FIX 1: Safeguard against null input field
+            if (!passwordInput) {
+                authStatus.textContent = 'Critical Error: Password input element not found.';
+                authStatus.classList.remove('hidden');
+                return;
+            }
+
+            const enteredPassword = passwordInput.value;
+            
+            if (enteredPassword !== MASTER_PASSWORD) {
+                authStatus.textContent = 'Error: Local password mismatch.';
+                authStatus.classList.remove('hidden');
+                return;
+            }
+            
+            if (GAS_ENDPOINT_URL.includes("YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL")) {
+                authStatus.textContent = 'Error: Please configure GAS_ENDPOINT_URL in the script.';
+                authStatus.classList.remove('hidden');
+                return;
+            }
+
+            // Attempt to fetch data using the password
+            authStatus.textContent = 'Authenticating and loading data...';
+            authStatus.classList.remove('hidden');
+
+            try {
+                // Initial data fetch uses the password from the input field
+                const response = await postDataToSheets('GET_DATA', {});
+                
+                if (response.status === 'success' && response.data) {
+                    allFinancialData = response.data;
+                    isAuthenticated = true;
+                    authOverlay.style.display = 'none';
+                    dashboardMain.classList.remove('hidden');
+                    renderSummaryTab();
+                    showMessage("Dashboard unlocked! Data loaded from Google Sheets.", 'green');
+                } else {
+                    authStatus.textContent = response.message || 'Authentication failed at Google Sheets API.';
+                    authStatus.classList.remove('hidden');
+                }
+            } catch (error) {
+                authStatus.textContent = 'Network or API connection error. Check your URL/Deployment.';
+                authStatus.classList.remove('hidden');
+            }
+        }
+        window.authenticateAndLoad = authenticateAndLoad;
+
+        async function postDataToSheets(action, data) {
+            if (!isAuthenticated && action !== 'GET_DATA') {
+                showMessage("Authentication required to save data.", 'red');
+                throw new Error("Not authenticated.");
+            }
+            
+            // FIX 2: Added origin parameter for GAS security check
+            // Determine the current running URL (origin) for GAS security check
+            // Removes the trailing filename to get the base path for origin whitelisting
+            const currentOrigin = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+            
+            // Safely retrieve the password from the input field (if visible during login) 
+            // or use the configured MASTER_PASSWORD (after login)
+            const payload = {
+                action: action,
+                data: data,
+                // Include the origin for the GAS whitelist check
+                origin: currentOrigin, 
+                password: document.getElementById('master-password')?.value || MASTER_PASSWORD 
+            };
+
+            const response = await fetch(GAS_ENDPOINT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            return await response.json();
+        }
+
+        // --- Data Calculation Functions ---
+
+        function calculateNetWorth() {
+            const totalAssets = allFinancialData.Assets.filter(a => a.Type !== 'Liability').reduce((sum, a) => sum + (a.Value || 0), 0);
+            const totalLiabilities = allFinancialData.Assets.filter(a => a.Type === 'Liability').reduce((sum, a) => sum + (a.Value || 0), 0);
+            return totalAssets - totalLiabilities;
+        }
+
+        function calculateCashFlow() {
+            const totalIncome = allFinancialData.Transactions.filter(t => t.Type === 'Income').reduce((sum, t) => sum + (t.Amount || 0), 0);
+            const totalExpense = allFinancialData.Transactions.filter(t => t.Type === 'Expense').reduce((sum, t) => sum + (t.Amount || 0), 0);
+            // This is a simple aggregate, ideally it should be filtered by 'last 30 days' for 'monthly' flow
+            return totalIncome - totalExpense;
+        }
+
+        // --- Render Functions (CRUD) ---
+
+        function renderSummaryTab() {
+            const netWorth = calculateNetWorth();
+            const cashFlow = calculateCashFlow();
+
+            // 1. Render Metrics
+            const assetsValue = allFinancialData.Assets.filter(a => a.Type !== 'Liability').reduce((sum, a) => sum + (a.Value || 0), 0);
+            const liabilitiesValue = allFinancialData.Assets.filter(a => a.Type === 'Liability').reduce((sum, a) => sum + (a.Value || 0), 0);
+            
+            const metricsHTML = `
+                <div class="metric-card border-green-500 bg-green-50 text-green-800">
+                    <p class="text-sm font-medium">Total Assets</p>
+                    <p class="text-3xl font-extrabold mt-1">$${assetsValue.toLocaleString()}</p>
+                </div>
+                <div class="metric-card border-red-500 bg-red-50 text-red-800">
+                    <p class="text-sm font-medium">Total Liabilities</p>
+                    <p class="text-3xl font-extrabold mt-1">$${liabilitiesValue.toLocaleString()}</p>
+                </div>
+                <div class="metric-card border-blue-500 bg-blue-50 text-blue-800">
+                    <p class="text-sm font-medium">Current Net Worth</p>
+                    <p class="text-3xl font-extrabold mt-1">$${netWorth.toLocaleString()}</p>
+                </div>
+                <div class="metric-card border-yellow-500 bg-yellow-50 text-yellow-800">
+                    <p class="text-sm font-medium">Total Cash Flow (All Time)</p>
+                    <p class="text-3xl font-extrabold mt-1">${cashFlow >= 0 ? '+' : ''}$${cashFlow.toLocaleString()}</p>
+                </div>
+            `;
+            document.getElementById('summary-metrics').innerHTML = metricsHTML;
+
+            // 2. Render Charts
+            renderNetWorthChart();
+            renderAssetAllocationChart();
+        }
+
+        function renderAssetsTab() {
+            const listContainer = document.getElementById('asset-list');
+            const assets = allFinancialData.Assets.filter(a => a.Type !== 'Liability');
+            if (assets.length === 0) {
+                listContainer.innerHTML = '<p class="text-gray-500 italic">No assets added.</p>';
+                return;
+            }
+
+            listContainer.innerHTML = assets.map(a => `
+                <div class="card p-4 flex justify-between items-center border-l-4 border-yellow-500">
+                    <div>
+                        <p class="text-gray-700 font-medium">${a.Name} (${a.Platform})</p>
+                        <p class="text-xs text-gray-500">${a.Type}</p>
+                    </div>
+                    <p class="font-bold text-lg text-yellow-700">$${(a.Value || 0).toLocaleString()}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderTransactionsTab(filterType, containerId) {
+            const listContainer = document.getElementById(containerId);
+            const transactions = allFinancialData.Transactions.filter(t => t.Type === filterType);
+            
+            if (transactions.length === 0) {
+                listContainer.innerHTML = `<p class="text-gray-500 italic">No ${filterType.toLowerCase()} transactions recorded.</p>`;
+                return;
+            }
+
+            listContainer.innerHTML = transactions.map(t => {
+                const isIncome = t.Type === 'Income';
+                const color = isIncome ? 'text-green-600' : 'text-red-600';
+                const borderColor = isIncome ? 'border-green-500' : 'border-red-500';
+
+                return `
+                    <div class="card p-4 flex justify-between items-center border-l-4 ${borderColor}">
+                        <div>
+                            <p class="text-gray-700 font-medium">${t.Description}</p>
+                            <p class="text-xs text-gray-500">${t.Category}</p>
+                        </div>
+                        <p class="font-bold text-lg ${color}">${isIncome ? '+' : '-'}$${(t.Amount || 0).toLocaleString()}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderPlatformTab() {
+            const listContainer = document.getElementById('platform-list');
+            const platforms = allFinancialData.Assets.filter(a => a.Platform && a.Type !== 'Liability')
+                .reduce((acc, asset) => {
+                    if (!acc[asset.Platform]) {
+                        acc[asset.Platform] = 0;
+                    }
+                    acc[asset.Platform] += asset.Value || 0;
+                    return acc;
+                }, {});
+
+            if (Object.keys(platforms).length === 0) {
+                listContainer.innerHTML = '<p class="text-gray-500 italic">No assets with specified platforms/locations. Please add assets via the "Assets" tab.</p>';
+                return;
+            }
+
+            listContainer.innerHTML = Object.entries(platforms).map(([platformName, balance]) => {
+                const color = platformName.includes('Vanguard') || platformName.includes('Fidelity') ? 'green' : 
+                              platformName.includes('Chase') || platformName.includes('Bank') ? 'blue' : 'indigo';
+                const liquidBalance = platformName.toLowerCase().includes('bank') || platformName.toLowerCase().includes('cash') ? balance : 0; // Simple liquidity heuristic
+
+                return `
+                    <div class="card p-5 border-l-4 border-${color}-500">
+                        <p class="font-semibold text-xl text-gray-800">${platformName}</p>
+                        <p class="text-sm text-gray-600">Total Balance: <span class="font-medium text-${color}-700">$${balance.toLocaleString()}</span></p>
+                        <div class="mt-4 p-3 bg-${color}-50 rounded-lg flex justify-between items-center">
+                            <span class="font-semibold text-${color}-800">Available Withdrawal Amount (Liquidity):</span>
+                            <span class="font-extrabold text-2xl text-${color}-600">$${liquidBalance.toLocaleString()}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderGoalsTab() {
+            const listContainer = document.getElementById('goal-list');
+            const goals = allFinancialData.Goals;
+            const currentSavings = allFinancialData.Assets.filter(a => a.Type === 'Cash/Savings').reduce((sum, a) => sum + (a.Value || 0), 0); // Simple calculation
+
+            if (goals.length === 0) {
+                listContainer.innerHTML = '<p class="text-gray-500 italic">No financial goals defined.</p>';
+                return;
+            }
+
+            listContainer.innerHTML = goals.map(g => {
+                const target = g.Target || 0;
+                const progressValue = Math.min(target, g.Progress || currentSavings) ; // Use current savings as simple proxy
+                const percentage = target > 0 ? Math.round((progressValue / target) * 100) : 0;
+
+                return `
+                    <div class="card p-5 border-l-4 border-purple-500">
+                        <p class="font-semibold text-xl">${g.Title}</p>
+                        <p class="text-sm text-gray-600">Target: $${target.toLocaleString()} | Deadline: ${new Date(g.Deadline).toLocaleDateString()}</p>
+                        <div class="w-full bg-gray-200 rounded-full h-3 mt-3">
+                            <div class="bg-purple-600 h-3 rounded-full" style="width: ${percentage}%"></div>
+                        </div>
+                        <p class="text-xs text-right text-purple-600 mt-1 font-semibold">${percentage}% Complete ($${progressValue.toLocaleString()} Saved)</p>
+                        <div id="strategy-response-${g.ID}" class="text-sm mt-3 p-3 bg-gray-50 rounded hidden"></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderBudgetTab() {
+            renderTransactionsTab('Income', 'investment-transactions-placeholder'); // Placeholder, actual transactions list below
+            
+            const expenseData = allFinancialData.Transactions.filter(t => t.Type === 'Expense');
+            
+            const groupedExpenses = expenseData.reduce((acc, t) => {
+                const category = t.Category || 'Other';
+                acc[category] = (acc[category] || 0) + (t.Amount || 0);
+                return acc;
+            }, {});
+
+            renderExpenseChart(groupedExpenses);
+        }
+
+        // --- Data Submission Functions (CRUD Operations) ---
+
+        async function refreshData() {
+            try {
+                const response = await postDataToSheets('GET_DATA', {});
+                if (response.status === 'success' && response.data) {
+                    allFinancialData = response.data;
+                    renderSummaryTab();
+                    // Optionally update other tabs if they are active
+                }
+            } catch (e) {
+                // Ignore silent refresh errors if not authenticated
+            }
+        }
+        
+        async function addGoal() {
+            const title = document.getElementById('goal-title').value;
+            const target = document.getElementById('goal-target').value;
+            const deadline = document.getElementById('goal-deadline').value;
+
+            if (!title || !target || !deadline) return showMessage("Please fill all goal fields.", 'yellow');
+
+            const result = await postDataToSheets('ADD_GOAL', { title, target: Number(target), deadline, progress: 0 }, );
+            if (result.status === 'success') {
+                showMessage(`Goal "${title}" saved to Google Sheet.`, 'green');
+                refreshData();
+            }
+        }
+        window.addGoal = addGoal;
+
+        async function addInvestmentTransaction() {
+            const desc = document.getElementById('inv-desc').value;
+            const amount = document.getElementById('inv-amount').value;
+            const category = document.getElementById('inv-category').value;
+
+            if (!desc || !amount) return showMessage("Please fill all transaction fields.", 'yellow');
+
+            const result = await postDataToSheets('ADD_TRANSACTION', { description: desc, amount: Number(amount), type: 'Investment', category }, );
+            if (result.status === 'success') {
+                 showMessage(`Investment transaction recorded.`, 'green');
+                 refreshData();
+            }
+        }
+        window.addInvestmentTransaction = addInvestmentTransaction;
+
+        async function addAsset() {
+            const name = document.getElementById('asset-name').value;
+            const value = document.getElementById('asset-value').value;
+            const type = document.getElementById('asset-type').value;
+            const platform = document.getElementById('asset-platform').value;
+
+            if (!name || !value) return showMessage("Please fill all asset fields.", 'yellow');
+
+            const result = await postDataToSheets('ADD_ASSET', { name, value: Number(value), type, platform }, );
+            if (result.status === 'success') {
+                 showMessage(`Asset "${name}" added to Google Sheet.`, 'green');
+                 refreshData();
+            }
+        }
+        window.addAsset = addAsset;
+
+        async function addExpense() {
+            const desc = document.getElementById('expense-desc').value;
+            const amount = document.getElementById('expense-amount').value;
+            const type = document.getElementById('expense-type').value;
+            const category = document.getElementById('expense-category').value;
+
+            if (!desc || !amount) return showMessage("Please fill all expense/income fields.", 'yellow');
+
+            const result = await postDataToSheets('ADD_TRANSACTION', { description: desc, amount: Number(amount), type, category }, );
+            if (result.status === 'success') {
+                 showMessage(`${type} recorded.`, 'green');
+                 refreshData();
+            }
+        }
+        window.addExpense = addExpense;
+
+
+        // --- Chart Initialization ---
+        let netWorthChartInstance = null;
+        let assetAllocationChartInstance = null;
+        let expenseChartInstance = null;
+
+        function renderNetWorthChart() {
+            const ctx = document.getElementById('netWorthChart').getContext('2d');
+            if (netWorthChartInstance) netWorthChartInstance.destroy();
+
+            // Simple data grouping by month from Assets (using Timestamp)
+            const worthByDate = allFinancialData.Assets.reduce((acc, asset) => {
+                const date = new Date(asset.Timestamp);
+                const monthYear = date.toISOString().substring(0, 7); // YYYY-MM
+                acc[monthYear] = (acc[monthYear] || 0) + (asset.Value || 0) * (asset.Type === 'Liability' ? -1 : 1);
+                return acc;
+            }, {});
+
+            const sortedMonths = Object.keys(worthByDate).sort();
+            const dataPoints = sortedMonths.map(month => worthByDate[month]);
+
+            netWorthChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths,
+                    datasets: [{
+                        label: 'Net Worth ($)',
+                        data: dataPoints,
+                        borderColor: '#3b82f6', 
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: { y: { beginAtZero: false, ticks: { callback: (value) => '$' + value.toLocaleString() } } }
+                }
+            });
+        }
+        
+        function renderAssetAllocationChart() {
+            const ctx = document.getElementById('assetAllocationChart').getContext('2d');
+            if (assetAllocationChartInstance) assetAllocationChartInstance.destroy();
+
+            const groupedAssets = allFinancialData.Assets.filter(a => a.Type !== 'Liability').reduce((acc, a) => {
+                acc[a.Type] = (acc[a.Type] || 0) + (a.Value || 0);
+                return acc;
+            }, {});
+
+            assetAllocationChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(groupedAssets),
+                    datasets: [{
+                        label: 'Asset Allocation',
+                        data: Object.values(groupedAssets),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#f97316'],
+                        hoverOffset: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+            });
+        }
+
+        function renderExpenseChart(groupedExpenses) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            if (expenseChartInstance) expenseChartInstance.destroy();
+
+            expenseChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(groupedExpenses),
+                    datasets: [{
+                        label: 'Expense Breakdown',
+                        data: Object.values(groupedExpenses),
+                        backgroundColor: [
+                            '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+                            '#6366f1', '#f97316', '#a855f7', '#ec4899'
+                        ],
+                        hoverOffset: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+            });
+        }
+        
+        // --- GEMINI AI Advisor Integration ---
+
+        const aiPromptInput = document.getElementById('ai-prompt');
+        const aiResponseText = document.getElementById('ai-response-text');
+        const aiLoading = document.getElementById('ai-loading');
+        const aiSourcesDiv = document.getElementById('ai-sources');
+        const aiSourceList = document.getElementById('ai-source-list');
+        const getAdviceBtn = document.getElementById('get-advice-btn');
+
+        async function fetchWithRetry(url, options, maxRetries = 3) {
+             // Exponential backoff logic
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) return response;
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    const delay = Math.pow(2, i) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        function createFinancialSummary() {
+            const assetsSummary = allFinancialData.Assets.map(a => `${a.Name}: $${a.Value.toLocaleString()} (${a.Type} on ${a.Platform || 'N/A'})`).join('; ');
+            const transactionsSummary = allFinancialData.Transactions.map(t => `${t.Description}: ${t.Type === 'Income' ? '+' : '-'}$${t.Amount.toLocaleString()} (${t.Category})`).slice(0, 10).join('; '); // Last 10
+            
+            return `
+                -- USER'S PRIVATE FINANCIAL CONTEXT --
+                Net Worth: $${calculateNetWorth().toLocaleString()}
+                All Assets & Liabilities: ${assetsSummary}
+                Recent Transactions (last 10): ${transactionsSummary}
+                -- END OF CONTEXT --
+            `;
+        }
+
+        async function callGeminiAPI(userQuery, includeGrounding = true) {
+            if (!API_KEY) {
+                aiResponseText.innerHTML = "❌ **AI Feature Disabled:** Please set your `API_KEY` in the script to enable the Gemini Advisor.";
+                getAdviceBtn.disabled = false;
+                getAdviceBtn.textContent = '✨ Get Ultra Smart Advice';
+                return { text: "AI is not configured.", sources: [] };
+            }
+            
+            const financialContext = createFinancialSummary();
+            const fullPrompt = userQuery + "\n\n" + financialContext;
+
+            const systemPrompt = `You are WealthUltra AI, a world-class financial strategist. You must use the provided user's financial context for personalized advice and use real-time web search for current market/economic data. Provide a concise, actionable, 3-point strategy or analysis.`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: fullPrompt }] }],
+                tools: includeGrounding ? [{ "google_search": {} }] : undefined,
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            aiLoading.classList.remove('hidden');
+            getAdviceBtn.disabled = true;
+            getAdviceBtn.textContent = 'AI Calculating...';
+
+            try {
+                const response = await fetchWithRetry(AI_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                let adviceText = "Sorry, I couldn't generate advice right now. The model response was empty.";
+                let sources = [];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    adviceText = candidate.content.parts[0].text;
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({ uri: attribution.web?.uri, title: attribution.web?.title }))
+                            .filter(source => source.uri && source.title);
+                    }
+                }
+
+                return { text: adviceText, sources: sources };
+
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                throw new Error("Failed to connect to the AI advisor.");
+            } finally {
+                aiLoading.classList.add('hidden');
+                getAdviceBtn.disabled = false;
+                getAdviceBtn.textContent = '✨ Get Ultra Smart Advice';
+            }
+        }
+
+        async function getFinancialAdvice() {
+            const userQuery = aiPromptInput.value.trim();
+            if (!userQuery) return showMessage("Please enter a question or topic for the AI advisor.", 'yellow');
+
+            try {
+                aiResponseText.textContent = '';
+                aiSourcesDiv.classList.add('hidden');
+                
+                const response = await callGeminiAPI(userQuery, true); 
+                
+                aiResponseText.innerHTML = response.text.replace(/\n/g, '<br>');
+
+                aiSourceList.innerHTML = '';
+                if (response.sources.length > 0) {
+                    response.sources.slice(0, 3).forEach(source => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<a href="${source.uri}" target="_blank" class="text-blue-500 hover:underline">${source.title}</a>`;
+                        aiSourceList.appendChild(li);
+                    });
+                    aiSourcesDiv.classList.remove('hidden');
+                } else {
+                    aiSourcesDiv.classList.add('hidden');
+                }
+
+            } catch (e) {
+                aiResponseText.textContent = "Error: Failed to connect to the AI advisor. Check API Key and network.";
+                showMessage("AI connection error.", 'red');
+            }
+        }
+        window.getFinancialAdvice = getFinancialAdvice;
+
+        async function strategizeGoal() {
+            const title = document.getElementById('goal-title').value;
+            const target = document.getElementById('goal-target').value;
+            const deadline = document.getElementById('goal-deadline').value;
+
+            if (!title || !target || !deadline) return showMessage("Please fill in Goal Title, Target, and Deadline first.", 'yellow');
+
+            const prompt = `Act as a senior financial strategist. Analyze the user's goal (Title: ${title}, Target: $${target}, Deadline: ${deadline}) in the context of their current financial data. Provide a concise, actionable, 3-step strategy to achieve this goal, focusing on realistic monthly savings required and potential investment reallocation.`;
+            
+            const goalId = allFinancialData.Goals.find(g => g.Title === title)?.ID || 'NEW';
+            const responseDiv = document.getElementById(`strategy-response-${goalId}`);
+
+            if (responseDiv) {
+                responseDiv.innerHTML = '<div class="text-blue-600">AI calculating strategy...</div>';
+                responseDiv.classList.remove('hidden');
+            }
+
+            try {
+                const response = await callGeminiAPI(prompt, false); 
+
+                let strategy = "AI Strategy failed to generate.";
+                if (response.text) {
+                     strategy = `
+                        <p class="font-bold text-blue-700 mb-2">WealthUltra AI Strategy for "${title}":</p>
+                        <div class="prose prose-sm text-gray-700">${response.text.replace(/\n/g, '<br>')}</div>
+                    `;
+                }
+
+                if (responseDiv) responseDiv.innerHTML = strategy;
+                showMessage(`AI Strategy generated for ${title}.`, 'green');
+
+            } catch (e) {
+                if (responseDiv) responseDiv.innerHTML = `<span class="text-red-600">Error: Could not connect to AI Strategist.</span>`;
+            }
+        }
+        window.strategizeGoal = strategizeGoal;
+
+    </script>
+</body>
+</html>
